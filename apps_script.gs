@@ -20,7 +20,7 @@
  */
 
 const SHEET_NAME = 'Votes';
-const HEADERS = ['timestamp', 'name', 'email', 'games'];
+const HEADERS = ['timestamp', 'name', 'email', 'games', 'suggestion'];
 
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -30,6 +30,14 @@ function getSheet_() {
     sh.appendRow(HEADERS);
     sh.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
     sh.setFrozenRows(1);
+  } else {
+    // Self-heal: extend header row if columns were added after first deploy.
+    const lastCol = sh.getLastColumn();
+    if (lastCol < HEADERS.length) {
+      sh.getRange(1, lastCol + 1, 1, HEADERS.length - lastCol)
+        .setValues([HEADERS.slice(lastCol)])
+        .setFontWeight('bold');
+    }
   }
   return sh;
 }
@@ -47,6 +55,7 @@ function doGet(e) {
   const voters = data.slice(1).map(r => ({
     name: String(r[1] || ''),
     games: String(r[3] || '').split(',').map(s => s.trim()).filter(Boolean),
+    suggestion: String(r[4] || '').trim(),
     ts: r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || null,
   })).filter(v => v.name && v.games.length);
   return json_({ ok: true, voters: voters });
@@ -59,6 +68,7 @@ function doPost(e) {
     const name  = String(body.name  || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const games = Array.isArray(body.games) ? body.games.map(String) : [];
+    const suggestion = String(body.suggestion || '').trim().slice(0, 120);
 
     if (!name)  return json_({ ok: false, error: 'missing_name'  });
     if (!email) return json_({ ok: false, error: 'missing_email' });
@@ -78,7 +88,7 @@ function doPost(e) {
           return json_({ ok: false, error: 'already_voted' });
         }
       }
-      sh.appendRow([new Date(), name, email, games.join(',')]);
+      sh.appendRow([new Date(), name, email, games.join(','), suggestion]);
     } finally {
       lock.releaseLock();
     }

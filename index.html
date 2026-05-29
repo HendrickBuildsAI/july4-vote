@@ -193,6 +193,13 @@
       <div class="leg"><span class="dot kids"></span>Kids only</div>
     </div>
     <div class="games-list" id="games-list"></div>
+
+    <div class="card" style="margin-top:14px;padding:18px 18px;">
+      <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:4px;">💡 Suggest a game we missed</div>
+      <div style="font-size:12px;color:#6a7a8a;margin-bottom:10px;">Optional — we'll add great ideas to the master list.</div>
+      <input type="text" class="name-input" id="voter-suggestion" placeholder="e.g. Watermelon Eating Contest" maxlength="120" style="margin-bottom:0;" />
+    </div>
+
     <div class="submit-sticky">
       <div class="submit-hint" id="submit-hint">Pick 2 in each category to submit</div>
       <button class="btn btn-red" id="submit-btn" onclick="submitVotes()" disabled>Submit My Votes</button>
@@ -231,6 +238,13 @@
     <div class="results-title">🏆 Live Standings</div>
     <div class="results-sub" id="results-sub">Loading...</div>
     <div id="results-list"></div>
+
+    <div id="suggestions-section" style="display:none;margin-top:24px;">
+      <div class="results-title" style="font-size:20px;">💡 Wishlist — Games Neighbors Suggested</div>
+      <div class="results-sub">Ideas we might add to next year's list</div>
+      <div id="suggestions-list"></div>
+    </div>
+
     <div style="margin-top:20px;text-align:center;font-size:12px;color:#aaa;">
       Results update every time someone votes. Share this page with your neighbors!
     </div>
@@ -305,6 +319,8 @@ function goHome() {
   selected.clear(); voterName = ''; voterEmail = '';
   document.getElementById('voter-name').value = '';
   document.getElementById('voter-email').value = '';
+  const sg = document.getElementById('voter-suggestion');
+  if (sg) sg.value = '';
   hideNameError();
   updateBadge();
   show('s-name');
@@ -454,6 +470,7 @@ async function submitVotes() {
         name: voterName,
         email: voterEmail,
         games: [...selected],
+        suggestion: (document.getElementById('voter-suggestion').value || '').trim(),
       }),
     });
     const data = await res.json();
@@ -538,6 +555,32 @@ async function showResults() {
       ${names.length ? `<div class="voters-list">Voted by: ${names.join(', ')}</div>` : ''}`;
     list.appendChild(row);
   });
+
+  // ── Wishlist (user-submitted suggestions) ─────────────────────
+  const section = document.getElementById('suggestions-section');
+  const sList   = document.getElementById('suggestions-list');
+  const suggs   = voters
+    .filter(v => v.suggestion && v.suggestion.trim())
+    .map(v => ({ name: v.name, text: v.suggestion.trim() }));
+
+  if (!suggs.length) {
+    section.style.display = 'none';
+    sList.innerHTML = '';
+  } else {
+    section.style.display = 'block';
+    sList.innerHTML = suggs.map(s => `
+      <div class="result-row" style="padding:11px 16px;">
+        <div style="font-weight:600;font-size:14px;color:var(--navy);">${escapeHtml(s.text)}</div>
+        <div style="font-size:11px;color:#9aa;margin-top:3px;">— ${escapeHtml(s.name)}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 }
 </script>
 </body>
