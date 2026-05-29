@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4th of July Block Party — Game Vote</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #C8102E; --navy: #0A1F44; --gold: #F4A900;
+    --cream: #FDF8F0; --white: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--navy); min-height: 100vh; }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image: radial-gradient(circle, #0A1F44 1px, transparent 1px);
+    background-size: 30px 30px; opacity: 0.05; pointer-events:none;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--navy); color: var(--white);
+    padding: 28px 20px 22px; text-align: center; position: relative; overflow: hidden;
+  }
+  .header::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:6px;
+    background: repeating-linear-gradient(90deg, var(--red) 0 40px, var(--white) 40px 80px);
+  }
+  .header-stars { font-size:18px; letter-spacing:10px; margin-bottom:8px; opacity:0.8; }
+  .header h1 { font-family:'Playfair Display',serif; font-size:clamp(24px,5vw,38px); font-weight:900; line-height:1.15; margin-bottom:8px; }
+  .header h1 span { color:var(--gold); }
+  .header p { font-size:15px; opacity:0.75; padding-bottom:8px; }
+
+  .main { max-width: 680px; margin: 0 auto; padding: 28px 16px 60px; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+
+  /* CARDS */
+  .card {
+    background: var(--white); border-radius:16px; padding:28px 24px;
+    border:1.5px solid #e8e0d0; box-shadow:0 4px 24px rgba(10,31,68,0.07);
+    animation: fadeUp 0.35s ease both;
+  }
+  .card h2 { font-family:'Playfair Display',serif; font-size:22px; margin-bottom:10px; }
+  .card p { color:#5a6a7a; font-size:14px; line-height:1.75; margin-bottom:20px; }
+
+  .name-input {
+    width:100%; padding:13px 16px; border-radius:10px;
+    border:1.5px solid #d0cbbf; font-size:16px; font-family:'DM Sans',sans-serif;
+    color:var(--navy); background:var(--cream); outline:none;
+    transition:border-color 0.2s; margin-bottom:14px;
+  }
+  .name-input:focus { border-color:var(--navy); }
+
+  .btn {
+    border:none; border-radius:10px; padding:13px 24px;
+    font-size:15px; font-weight:600; font-family:'DM Sans',sans-serif;
+    cursor:pointer; transition:all 0.15s; letter-spacing:0.3px;
+  }
+  .btn-red { background:var(--red); color:white; width:100%; }
+  .btn-red:hover { background:#a50d24; }
+  .btn-red:disabled { background:#ccc; cursor:not-allowed; }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid #d0cbbf; margin-right:8px; margin-bottom:8px; }
+  .btn-outline:hover { border-color:var(--navy); }
+
+  /* VOTE SCREEN */
+  .vote-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .vote-title { font-family:'Playfair Display',serif; font-size:20px; }
+  .vote-badge {
+    background:var(--navy); color:white; font-size:13px; font-weight:600;
+    padding:5px 14px; border-radius:999px;
+  }
+  .vote-badge.full { background:var(--red); }
+
+  .filter-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .tab {
+    padding:5px 14px; border-radius:999px; border:1.5px solid #d0cbbf;
+    background:var(--white); font-size:12px; font-weight:500; cursor:pointer;
+    color:#5a6a7a; transition:all 0.15s; font-family:'DM Sans',sans-serif;
+  }
+  .tab.active { background:var(--navy); border-color:var(--navy); color:white; }
+
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:#6a7a8a; }
+  .leg { display:flex; align-items:center; gap:5px; }
+  .dot { width:8px; height:8px; border-radius:50%; }
+  .dot.both { background:#E8A020; } .dot.adult { background:#7B6CE8; } .dot.kids { background:#2FAA81; }
+
+  .games-list { display:flex; flex-direction:column; gap:8px; }
+  .game-row {
+    background:var(--white); border-radius:12px; border:1.5px solid #e8e0d0;
+    padding:12px 14px; display:flex; align-items:center; gap:11px;
+    cursor:pointer; transition:border-color 0.15s,box-shadow 0.15s,background 0.15s;
+    position:relative; overflow:hidden; user-select:none;
+  }
+  .game-row:hover { border-color:#b0a890; }
+  .game-row.selected { border-color:var(--red); background:#fff8f8; box-shadow:0 0 0 1px var(--red); }
+  .game-row.selected::before {
+    content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--red); border-radius:12px 0 0 12px;
+  }
+  .game-row.hidden { display:none; }
+
+  .check-box {
+    width:22px; height:22px; border-radius:6px; border:2px solid #ccc; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:all 0.15s; background:white;
+  }
+  .selected .check-box { background:var(--red); border-color:var(--red); }
+  .check-svg { display:none; }
+  .selected .check-svg { display:block; }
+
+  .game-info { flex:1; min-width:0; }
+  .gname { font-weight:600; font-size:14px; color:var(--navy); }
+  .gdesc { font-size:12px; color:#6a7a8a; line-height:1.4; margin-top:1px; }
+
+  .submit-sticky {
+    position:sticky; bottom:0; background:var(--cream);
+    padding:14px 0 4px; border-top:1px solid #e8e0d0; margin-top:12px;
+  }
+  .submit-hint { font-size:12px; color:#8a9aaa; text-align:center; margin-bottom:10px; }
+
+  /* THANKS */
+  .thanks-icon { font-size:52px; margin-bottom:14px; text-align:center; }
+  .thanks-card { text-align:center; }
+
+  /* RESULTS */
+  .results-title { font-family:'Playfair Display',serif; font-size:22px; margin-bottom:4px; }
+  .results-sub { font-size:13px; color:#6a7a8a; margin-bottom:18px; }
+  .result-row { background:var(--white); border-radius:12px; border:1.5px solid #e8e0d0; padding:13px 16px; margin-bottom:8px; }
+  .result-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .rname { font-weight:600; font-size:14px; }
+  .rvotes { font-size:13px; font-weight:700; color:var(--red); }
+  .bar-bg { background:#f0ece4; border-radius:999px; height:8px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:999px; transition:width 0.7s ease; }
+  .bar-gold  { background:var(--gold); }
+  .bar-silver{ background:#aaa; }
+  .bar-bronze{ background:#cd7f32; }
+  .bar-red   { background:var(--red); }
+  .voters-list { font-size:11px; color:#9aa; margin-top:5px; }
+  .result-rank { font-size:18px; margin-right:6px; }
+  .cat-tag { font-size:11px; color:#8a9aaa; font-weight:400; margin-left:5px; }
+  .empty-msg { text-align:center; color:#8a9aaa; padding:32px; font-size:14px; }
+  .nav-row { display:flex; flex-wrap:wrap; margin-bottom:16px; }
+
+  .screen { display:none; }
+  .screen.active { display:block; animation:fadeUp 0.35s ease both; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-stars">★ ★ ★ ★ ★ ★ ★</div>
+  <h1>Block Party <span>Game Vote</span><br>4th of July 2026</h1>
+  <p>Pick your top 5 — help us plan the ultimate block party!</p>
+</div>
+
+<div class="main">
+
+  <!-- NAME SCREEN -->
+  <div id="s-name" class="screen active">
+    <div class="card">
+      <h2>Cast Your Vote 🗳️</h2>
+      <p>We're planning the most epic 4th of July block party and need your picks! Enter your name below, then choose up to <strong>5 games</strong> you'd most want to play. Results are shared live with everyone who votes.</p>
+      <input type="text" class="name-input" id="voter-name" placeholder="Your first name..." maxlength="30" />
+      <button class="btn btn-red" onclick="startVoting()">Let's Vote →</button>
+      <div style="text-align:center;margin-top:14px;">
+        <button class="btn btn-outline" style="width:auto" onclick="showResults()">📊 View Current Results</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOTE SCREEN -->
+  <div id="s-vote" class="screen">
+    <div class="vote-header">
+      <div class="vote-title">Pick Your Top 5</div>
+      <div class="vote-badge" id="vote-badge">0 / 5</div>
+    </div>
+    <div class="filter-tabs">
+      <button class="tab active" onclick="filterGames('all',this)">All (36)</button>
+      <button class="tab" onclick="filterGames('both',this)">🎉 All Ages</button>
+      <button class="tab" onclick="filterGames('adult',this)">🍺 Adults</button>
+      <button class="tab" onclick="filterGames('kids',this)">🧒 Kids</button>
+    </div>
+    <div class="legend">
+      <div class="leg"><span class="dot both"></span>All ages</div>
+      <div class="leg"><span class="dot adult"></span>Adults only</div>
+      <div class="leg"><span class="dot kids"></span>Kids only</div>
+    </div>
+    <div class="games-list" id="games-list"></div>
+    <div class="submit-sticky">
+      <div class="submit-hint" id="submit-hint">Select at least 1 game to submit</div>
+      <button class="btn btn-red" id="submit-btn" onclick="submitVotes()" disabled>Submit My Votes</button>
+    </div>
+  </div>
+
+  <!-- THANKS SCREEN -->
+  <div id="s-thanks" class="screen">
+    <div class="card thanks-card">
+      <div class="thanks-icon">🎆</div>
+      <h2>Thanks, <span id="thanks-name"></span>!</h2>
+      <p>Your votes are locked in. See the live standings to watch the games compete for the top spots!</p>
+      <br>
+      <button class="btn btn-red" onclick="showResults()">See the Results →</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="s-results" class="screen">
+    <div class="nav-row">
+      <button class="btn btn-outline" onclick="showResults()">🔄 Refresh</button>
+      <button class="btn btn-outline" onclick="goHome()">← Vote Again</button>
+    </div>
+    <div class="results-title">🏆 Live Standings</div>
+    <div class="results-sub" id="results-sub">Loading...</div>
+    <div id="results-list"></div>
+    <div style="margin-top:20px;text-align:center;font-size:12px;color:#aaa;">
+      Results update every time someone votes. Share this page with your neighbors!
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────
+const MAX = 5;
+const SK  = 'july4_votes_2026';
+const VK  = 'july4_voters_2026';
+
+const GAMES = [
+  {id:'cornhole',      name:'Cornhole',                   cat:'both',  desc:'Toss bean bags onto boards to score'},
+  {id:'ladder_toss',   name:'Ladder Toss',                cat:'both',  desc:'Wrap bolas around ladder rungs'},
+  {id:'giant_jenga',   name:'Giant Jenga',                cat:'both',  desc:'Pull blocks without toppling the tower'},
+  {id:'tug_war',       name:'Tug of War',                 cat:'both',  desc:'Classic rope pull team battle'},
+  {id:'water_fight',   name:'Water Balloon Fight',        cat:'both',  desc:'Hundreds of balloons, pure chaos'},
+  {id:'ring_toss',     name:'Ring Toss',                  cat:'both',  desc:'Toss rings onto bottles or pegs'},
+  {id:'capture_flag',  name:'Capture the Flag',           cat:'both',  desc:'Steal the other team\'s flag'},
+  {id:'three_leg',     name:'Three-Legged Race',          cat:'both',  desc:'Tied together, race to the finish'},
+  {id:'hula_hoop',     name:'Hula Hoop Contest',          cat:'both',  desc:'Who keeps it spinning longest?'},
+  {id:'popcorn_cup',   name:'Popcorn Cup Shuffle ⭐',     cat:'both',  desc:'Cups on feet — shuffle popcorn to win'},
+  {id:'kubb',          name:'Kubb (Viking Chess)',         cat:'both',  desc:'Knock down wooden blocks with stakes'},
+  {id:'yard_twister',  name:'Yard Twister',               cat:'both',  desc:'Spray-painted Twister on the lawn'},
+  {id:'water_toss',    name:'Water Balloon Toss',         cat:'both',  desc:'Step back each catch — last dry pair wins'},
+  {id:'glow_rings',    name:'Glow Ring Toss',             cat:'both',  desc:'Nighttime ring toss with glow sticks'},
+  {id:'connect4',      name:'Giant Connect 4',            cat:'both',  desc:'Life-sized four-in-a-row'},
+  {id:'yard_yahtzee',  name:'Yard Yahtzee',               cat:'both',  desc:'Giant dice, classic Yahtzee rules'},
+  {id:'sponge_relay',  name:'Sponge Relay Race',          cat:'both',  desc:'Fill your bucket with a soaked sponge'},
+  {id:'water_ctf',     name:'Water Gun Capture the Flag', cat:'both',  desc:'Capture the flag with water guns'},
+  {id:'can_bowling',   name:'Can Bowling',                cat:'both',  desc:'Knock down patriotic painted tin cans'},
+  {id:'bucket_ball',   name:'Bucket Ball',                cat:'both',  desc:'Giant beer pong, kid-friendly style'},
+  {id:'lawn_picto',    name:'Lawn Pictionary',            cat:'both',  desc:'Giant chalk drawing guessing game'},
+  {id:'pat_relay',     name:'Patriotic Relay Race',       cat:'both',  desc:'Flags, hats, spins, and tags'},
+  {id:'sack_race',     name:'Sack Race',                  cat:'kids',  desc:'Hop to the finish in a burlap sack'},
+  {id:'egg_spoon',     name:'Egg & Spoon Race',           cat:'kids',  desc:'Balance an egg and race to the finish'},
+  {id:'duck_goose',    name:'Duck Duck Goose',            cat:'kids',  desc:'Classic circle chase game'},
+  {id:'freeze_tag',    name:'Freeze Tag',                 cat:'kids',  desc:'Get frozen, get unfrozen, repeat'},
+  {id:'chalk_art',     name:'Sidewalk Chalk Art Contest', cat:'kids',  desc:'Patriotic masterpiece judged for prizes'},
+  {id:'slip_slide',    name:'Slip & Slide',               cat:'kids',  desc:'Plastic sheet + soap + hose = summer'},
+  {id:'scavenger',     name:'Patriotic Scavenger Hunt',   cat:'kids',  desc:'Find all the red, white & blue items'},
+  {id:'beer_pong',     name:'Beer Pong',                  cat:'adult', desc:'Classic cup-and-ball drinking game'},
+  {id:'kan_jam',       name:'Kan Jam',                    cat:'adult', desc:'Frisbee into cylinder, partner deflects'},
+  {id:'bocce',         name:'Bocce Ball',                 cat:'adult', desc:'Roll closest to the pallino target'},
+  {id:'spikeball',     name:'Spikeball',                  cat:'adult', desc:'360° frisbee-net team game'},
+  {id:'trivia',        name:'Trivia Challenge',           cat:'adult', desc:'Red, white & blue trivia for teams'},
+  {id:'frisbee_golf',  name:'Frisbee Golf',               cat:'adult', desc:'DIY course, fewest throws wins'},
+  {id:'blindfold_eat', name:'Blindfolded Eating Race',    cat:'adult', desc:'Mystery foods, eyes closed, race to finish'},
+];
+
+let selected = new Set();
+let voterName = '';
+
+// ── SCREENS ──────────────────────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  selected.clear(); voterName = '';
+  document.getElementById('voter-name').value = '';
+  updateBadge();
+  show('s-name');
+}
+
+// ── NAME SCREEN ───────────────────────────────────────────────
+document.getElementById('voter-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startVoting();
+});
+
+function startVoting() {
+  const v = document.getElementById('voter-name').value.trim();
+  if (!v) { document.getElementById('voter-name').focus(); return; }
+  voterName = v;
+  renderGames();
+  show('s-vote');
+}
+
+// ── VOTE SCREEN ───────────────────────────────────────────────
+function renderGames() {
+  const list = document.getElementById('games-list');
+  list.innerHTML = '';
+  GAMES.forEach(g => {
+    const row = document.createElement('div');
+    row.className = 'game-row' + (selected.has(g.id) ? ' selected' : '');
+    row.dataset.id = g.id;
+    row.dataset.cat = g.cat;
+    row.onclick = () => toggle(g.id);
+    const dotColor = g.cat;
+    row.innerHTML = `
+      <div class="check-box">
+        <svg class="check-svg" width="12" height="10" viewBox="0 0 12 10" fill="none">
+          <path d="M1 5L4.5 8.5L11 1.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="dot ${dotColor}" style="flex-shrink:0"></span>
+      <div class="game-info">
+        <div class="gname">${g.name}</div>
+        <div class="gdesc">${g.desc}</div>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+function toggle(id) {
+  if (selected.has(id)) {
+    selected.delete(id);
+  } else {
+    if (selected.size >= MAX) return;
+    selected.add(id);
+  }
+  const row = document.querySelector(`.game-row[data-id="${id}"]`);
+  if (row) row.classList.toggle('selected', selected.has(id));
+  updateBadge();
+}
+
+function updateBadge() {
+  const n = selected.size;
+  const badge = document.getElementById('vote-badge');
+  badge.textContent = `${n} / ${MAX}`;
+  badge.className = 'vote-badge' + (n >= MAX ? ' full' : '');
+  document.getElementById('submit-btn').disabled = n === 0;
+  const hint = document.getElementById('submit-hint');
+  if (n === 0) hint.textContent = 'Select at least 1 game to submit';
+  else if (n < MAX) hint.textContent = `You can pick ${MAX - n} more, or submit now`;
+  else hint.textContent = '🎉 All 5 selected — ready to submit!';
+}
+
+function filterGames(cat, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.game-row').forEach(r => {
+    r.classList.toggle('hidden', cat !== 'all' && r.dataset.cat !== cat);
+  });
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────
+async function submitVotes() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+
+  try {
+    let votes = {};
+    try { const r = await window.storage.get(SK, true); if (r) votes = JSON.parse(r.value); } catch(e){}
+    selected.forEach(id => { votes[id] = (votes[id] || 0) + 1; });
+    await window.storage.set(SK, JSON.stringify(votes), true);
+
+    let voters = [];
+    try { const r = await window.storage.get(VK, true); if (r) voters = JSON.parse(r.value); } catch(e){}
+    voters.push({ name: voterName, games: [...selected], ts: Date.now() });
+    await window.storage.set(VK, JSON.stringify(voters), true);
+  } catch(e) { console.error(e); }
+
+  document.getElementById('thanks-name').textContent = voterName;
+  show('s-thanks');
+}
+
+// ── RESULTS ───────────────────────────────────────────────────
+async function showResults() {
+  show('s-results');
+  document.getElementById('results-sub').textContent = 'Loading...';
+  document.getElementById('results-list').innerHTML = '';
+
+  let votes = {}, voters = [];
+  try {
+    const vd = await window.storage.get(SK, true); if (vd) votes = JSON.parse(vd.value);
+    const vr = await window.storage.get(VK, true); if (vr) voters = JSON.parse(vr.value);
+  } catch(e){}
+
+  const n = voters.length;
+  document.getElementById('results-sub').textContent =
+    `${n} voter${n!==1?'s':''} so far · refreshed just now`;
+
+  const sorted = GAMES
+    .map(g => ({...g, votes: votes[g.id]||0}))
+    .filter(g => g.votes > 0)
+    .sort((a,b) => b.votes - a.votes);
+
+  const list = document.getElementById('results-list');
+
+  if (!sorted.length) {
+    list.innerHTML = '<div class="empty-msg">No votes yet — share the link and be the first! 🎆</div>';
+    return;
+  }
+
+  const maxV = sorted[0].votes;
+  const medals  = ['🥇','🥈','🥉'];
+  const barClass = ['bar-gold','bar-silver','bar-bronze'];
+  const catLabel = {both:'🎉 All ages', adult:'🍺 Adults', kids:'🧒 Kids'};
+
+  sorted.forEach((g, i) => {
+    const names = voters.filter(v=>v.games.includes(g.id)).map(v=>v.name);
+    const pct   = Math.round((g.votes/maxV)*100);
+    const bc    = i < 3 ? barClass[i] : 'bar-red';
+    const rank  = i < 3 ? medals[i] : `#${i+1}`;
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML = `
+      <div class="result-top">
+        <div class="rname">
+          <span class="result-rank">${rank}</span>${g.name}
+          <span class="cat-tag">${catLabel[g.cat]||''}</span>
+        </div>
+        <div class="rvotes">${g.votes} vote${g.votes!==1?'s':''}</div>
+      </div>
+      <div class="bar-bg"><div class="bar-fill ${bc}" style="width:${pct}%"></div></div>
+      ${names.length ? `<div class="voters-list">Voted by: ${names.join(', ')}</div>` : ''}`;
+    list.appendChild(row);
+  });
+}
+</script>
+</body>
+</html>
