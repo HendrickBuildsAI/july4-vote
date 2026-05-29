@@ -164,8 +164,10 @@
   <div id="s-name" class="screen active">
     <div class="card">
       <h2>Cast Your Vote 🗳️</h2>
-      <p>We're planning the most epic 4th of July block party and need your picks! Enter your name below, then choose <strong>2 games in each category</strong> — All Ages, Adults, and Kids Only (6 picks total). Results are shared live with everyone who votes.</p>
-      <input type="text" class="name-input" id="voter-name" placeholder="Your first name..." maxlength="30" />
+      <p>We're planning the most epic 4th of July block party and need your picks! Enter your info below, then choose <strong>2 games in each category</strong> — All Ages, Adults, and Kids Only (6 picks total). One vote per email. Results are shared live with everyone who votes.</p>
+      <input type="text"  class="name-input" id="voter-name"  placeholder="Your first name..." maxlength="30" />
+      <input type="email" class="name-input" id="voter-email" placeholder="Email (so we only count each person once)" maxlength="80" />
+      <div id="name-error" style="display:none;color:var(--red);font-size:13px;margin:-6px 0 12px;font-weight:600;"></div>
       <button class="btn btn-red" onclick="startVoting()">Let's Vote →</button>
       <div style="text-align:center;margin-top:14px;">
         <button class="btn btn-outline" style="width:auto" onclick="showResults()">📊 View Current Results</button>
@@ -197,6 +199,18 @@
     </div>
   </div>
 
+  <!-- ALREADY VOTED SCREEN -->
+  <div id="s-already" class="screen">
+    <div class="card thanks-card">
+      <div class="thanks-icon">✋</div>
+      <h2>You've already voted!</h2>
+      <p>Looks like this email is already in the books. One vote per person — but you can still watch the live results roll in.</p>
+      <br>
+      <button class="btn btn-red" onclick="showResults()">See the Results →</button>
+      <div style="margin-top:10px"><button class="btn btn-outline" style="width:auto" onclick="goHome()">← Use a different email</button></div>
+    </div>
+  </div>
+
   <!-- THANKS SCREEN -->
   <div id="s-thanks" class="screen">
     <div class="card thanks-card">
@@ -225,6 +239,10 @@
 </div>
 
 <script>
+// ── CONFIG ────────────────────────────────────────────────────
+// Paste the /exec URL from your Apps Script Web App deployment here:
+const APPS_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
+
 // ── DATA ──────────────────────────────────────────────────────
 const PER_CAT = 2;
 const CATS    = ['both', 'adult', 'kids'];
@@ -274,6 +292,8 @@ const GAMES = [
 
 let selected = new Set();
 let voterName = '';
+let voterEmail = '';
+const LOCAL_VOTED_KEY = 'july4_voted_email_2026';
 
 // ── SCREENS ──────────────────────────────────────────────────
 function show(id) {
@@ -282,21 +302,48 @@ function show(id) {
 }
 
 function goHome() {
-  selected.clear(); voterName = '';
+  selected.clear(); voterName = ''; voterEmail = '';
   document.getElementById('voter-name').value = '';
+  document.getElementById('voter-email').value = '';
+  hideNameError();
   updateBadge();
   show('s-name');
 }
 
 // ── NAME SCREEN ───────────────────────────────────────────────
-document.getElementById('voter-name').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startVoting();
+['voter-name','voter-email'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') startVoting();
+  });
 });
 
+function showNameError(msg) {
+  const el = document.getElementById('name-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function hideNameError() {
+  const el = document.getElementById('name-error');
+  el.textContent = ''; el.style.display = 'none';
+}
+
 function startVoting() {
-  const v = document.getElementById('voter-name').value.trim();
-  if (!v) { document.getElementById('voter-name').focus(); return; }
-  voterName = v;
+  hideNameError();
+  const n = document.getElementById('voter-name').value.trim();
+  const e = document.getElementById('voter-email').value.trim().toLowerCase();
+  if (!n) { showNameError('Please enter your first name.'); document.getElementById('voter-name').focus(); return; }
+  if (!e) { showNameError('Please enter your email.'); document.getElementById('voter-email').focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+    showNameError('That email looks off — double-check it?');
+    document.getElementById('voter-email').focus(); return;
+  }
+  // Browser-level guard: if this device already submitted, skip straight to "already voted".
+  try {
+    if (localStorage.getItem(LOCAL_VOTED_KEY) === e) {
+      voterName = n; voterEmail = e;
+      show('s-already'); return;
+    }
+  } catch(_) {}
+  voterName = n; voterEmail = e;
   renderGames();
   updateBadge();
   show('s-vote');
@@ -399,16 +446,32 @@ async function submitVotes() {
   btn.disabled = true; btn.textContent = 'Submitting...';
 
   try {
-    let votes = {};
-    try { const r = await window.storage.get(SK, true); if (r) votes = JSON.parse(r.value); } catch(e){}
-    selected.forEach(id => { votes[id] = (votes[id] || 0) + 1; });
-    await window.storage.set(SK, JSON.stringify(votes), true);
-
-    let voters = [];
-    try { const r = await window.storage.get(VK, true); if (r) voters = JSON.parse(r.value); } catch(e){}
-    voters.push({ name: voterName, games: [...selected], ts: Date.now() });
-    await window.storage.set(VK, JSON.stringify(voters), true);
-  } catch(e) { console.error(e); }
+    // text/plain avoids a CORS preflight that Apps Script can't answer.
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        name: voterName,
+        email: voterEmail,
+        games: [...selected],
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (data.error === 'already_voted') {
+        try { localStorage.setItem(LOCAL_VOTED_KEY, voterEmail); } catch(_) {}
+        show('s-already');
+        return;
+      }
+      throw new Error(data.error || 'submit_failed');
+    }
+    try { localStorage.setItem(LOCAL_VOTED_KEY, voterEmail); } catch(_) {}
+  } catch (err) {
+    console.error(err);
+    alert("Sorry, couldn't save your vote. Check your internet and try again.");
+    btn.disabled = false; btn.textContent = 'Submit My Votes';
+    return;
+  }
 
   document.getElementById('thanks-name').textContent = voterName;
   show('s-thanks');
@@ -422,9 +485,18 @@ async function showResults() {
 
   let votes = {}, voters = [];
   try {
-    const vd = await window.storage.get(SK, true); if (vd) votes = JSON.parse(vd.value);
-    const vr = await window.storage.get(VK, true); if (vr) voters = JSON.parse(vr.value);
-  } catch(e){}
+    const res = await fetch(APPS_SCRIPT_URL + '?cb=' + Date.now());
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.voters)) {
+      voters = data.voters;
+      voters.forEach(v => (v.games || []).forEach(id => {
+        votes[id] = (votes[id] || 0) + 1;
+      }));
+    }
+  } catch (e) {
+    document.getElementById('results-sub').textContent = "Couldn't load results — check your connection.";
+    return;
+  }
 
   const n = voters.length;
   document.getElementById('results-sub').textContent =
