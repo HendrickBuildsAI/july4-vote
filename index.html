@@ -100,6 +100,10 @@
     background:var(--red); border-radius:12px 0 0 12px;
   }
   .game-row.hidden { display:none; }
+  .game-row.cat-full { opacity:0.35; cursor:not-allowed; }
+  .game-row.cat-full:hover { border-color:#e8e0d0; }
+  .tab-count { margin-left:6px; font-weight:700; opacity:0.85; }
+  .tab.cat-done { background:#1d6f4a; border-color:#1d6f4a; color:white; }
 
   .check-box {
     width:22px; height:22px; border-radius:6px; border:2px solid #ccc; flex-shrink:0;
@@ -151,7 +155,7 @@
 <div class="header">
   <div class="header-stars">★ ★ ★ ★ ★ ★ ★</div>
   <h1>Block Party <span>Game Vote</span><br>4th of July 2026</h1>
-  <p>Pick your top 5 — help us plan the ultimate block party!</p>
+  <p>Pick 2 games in each category — help us plan the ultimate block party!</p>
 </div>
 
 <div class="main">
@@ -160,7 +164,7 @@
   <div id="s-name" class="screen active">
     <div class="card">
       <h2>Cast Your Vote 🗳️</h2>
-      <p>We're planning the most epic 4th of July block party and need your picks! Enter your name below, then choose up to <strong>5 games</strong> you'd most want to play. Results are shared live with everyone who votes.</p>
+      <p>We're planning the most epic 4th of July block party and need your picks! Enter your name below, then choose <strong>2 games in each category</strong> — All Ages, Adults, and Kids Only (6 picks total). Results are shared live with everyone who votes.</p>
       <input type="text" class="name-input" id="voter-name" placeholder="Your first name..." maxlength="30" />
       <button class="btn btn-red" onclick="startVoting()">Let's Vote →</button>
       <div style="text-align:center;margin-top:14px;">
@@ -172,14 +176,14 @@
   <!-- VOTE SCREEN -->
   <div id="s-vote" class="screen">
     <div class="vote-header">
-      <div class="vote-title">Pick Your Top 5</div>
-      <div class="vote-badge" id="vote-badge">0 / 5</div>
+      <div class="vote-title">Pick 2 Per Category</div>
+      <div class="vote-badge" id="vote-badge">0 / 6</div>
     </div>
     <div class="filter-tabs">
-      <button class="tab active" onclick="filterGames('all',this)">All (36)</button>
-      <button class="tab" onclick="filterGames('both',this)">🎉 All Ages</button>
-      <button class="tab" onclick="filterGames('adult',this)">🍺 Adults</button>
-      <button class="tab" onclick="filterGames('kids',this)">🧒 Kids</button>
+      <button class="tab active" id="tab-all" onclick="filterGames('all',this)">All (36)</button>
+      <button class="tab" id="tab-both" onclick="filterGames('both',this)">🎉 All Ages<span class="tab-count" id="tab-both-c">0/2</span></button>
+      <button class="tab" id="tab-adult" onclick="filterGames('adult',this)">🍺 Adults<span class="tab-count" id="tab-adult-c">0/2</span></button>
+      <button class="tab" id="tab-kids" onclick="filterGames('kids',this)">🧒 Kids Only<span class="tab-count" id="tab-kids-c">0/2</span></button>
     </div>
     <div class="legend">
       <div class="leg"><span class="dot both"></span>All ages</div>
@@ -188,7 +192,7 @@
     </div>
     <div class="games-list" id="games-list"></div>
     <div class="submit-sticky">
-      <div class="submit-hint" id="submit-hint">Select at least 1 game to submit</div>
+      <div class="submit-hint" id="submit-hint">Pick 2 in each category to submit</div>
       <button class="btn btn-red" id="submit-btn" onclick="submitVotes()" disabled>Submit My Votes</button>
     </div>
   </div>
@@ -222,7 +226,10 @@
 
 <script>
 // ── DATA ──────────────────────────────────────────────────────
-const MAX = 5;
+const PER_CAT = 2;
+const CATS    = ['both', 'adult', 'kids'];
+const CAT_LABEL = { both: '🎉 All Ages', adult: '🍺 Adults', kids: '🧒 Kids Only' };
+const TOTAL   = PER_CAT * CATS.length; // 6
 const SK  = 'july4_votes_2026';
 const VK  = 'july4_voters_2026';
 
@@ -291,6 +298,7 @@ function startVoting() {
   if (!v) { document.getElementById('voter-name').focus(); return; }
   voterName = v;
   renderGames();
+  updateBadge();
   show('s-vote');
 }
 
@@ -320,11 +328,21 @@ function renderGames() {
   });
 }
 
+function gameById(id) { return GAMES.find(g => g.id === id); }
+
+function catCount(cat) {
+  let n = 0;
+  selected.forEach(id => { const g = gameById(id); if (g && g.cat === cat) n++; });
+  return n;
+}
+
 function toggle(id) {
+  const g = gameById(id);
+  if (!g) return;
   if (selected.has(id)) {
     selected.delete(id);
   } else {
-    if (selected.size >= MAX) return;
+    if (catCount(g.cat) >= PER_CAT) return; // category is full
     selected.add(id);
   }
   const row = document.querySelector(`.game-row[data-id="${id}"]`);
@@ -335,13 +353,36 @@ function toggle(id) {
 function updateBadge() {
   const n = selected.size;
   const badge = document.getElementById('vote-badge');
-  badge.textContent = `${n} / ${MAX}`;
-  badge.className = 'vote-badge' + (n >= MAX ? ' full' : '');
-  document.getElementById('submit-btn').disabled = n === 0;
+  badge.textContent = `${n} / ${TOTAL}`;
+  badge.className = 'vote-badge' + (n >= TOTAL ? ' full' : '');
+
+  // Per-category progress on tab pills
+  CATS.forEach(c => {
+    const cnt = catCount(c);
+    const el  = document.getElementById(`tab-${c}-c`);
+    if (el) el.textContent = `${cnt}/${PER_CAT}`;
+    const tab = document.getElementById(`tab-${c}`);
+    if (tab) tab.classList.toggle('cat-done', cnt === PER_CAT);
+  });
+
+  // Fade out un-picked rows in categories that are already full
+  document.querySelectorAll('.game-row').forEach(r => {
+    const cat = r.dataset.cat;
+    const isSel = selected.has(r.dataset.id);
+    r.classList.toggle('cat-full', !isSel && catCount(cat) >= PER_CAT);
+  });
+
+  // Submit only when every category has exactly PER_CAT picks
+  const missing = CATS.filter(c => catCount(c) < PER_CAT);
+  document.getElementById('submit-btn').disabled = missing.length > 0;
+
   const hint = document.getElementById('submit-hint');
-  if (n === 0) hint.textContent = 'Select at least 1 game to submit';
-  else if (n < MAX) hint.textContent = `You can pick ${MAX - n} more, or submit now`;
-  else hint.textContent = '🎉 All 5 selected — ready to submit!';
+  if (missing.length === 0) {
+    hint.textContent = '🎉 All categories filled — ready to submit!';
+  } else {
+    const parts = missing.map(c => `${CAT_LABEL[c]} (${catCount(c)}/${PER_CAT})`);
+    hint.textContent = 'Still need: ' + parts.join(' · ');
+  }
 }
 
 function filterGames(cat, btn) {
